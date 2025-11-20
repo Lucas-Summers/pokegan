@@ -1,0 +1,40 @@
+# Baseline DCGAN Configuration for Pokémon Generation
+# Stage 2: Baseline Model Implementation
+
+# Model architecture
+model:
+  nz: 100              # Size of input noise vector
+  ngf: 512             # Number of generator features in first layer
+  ndf: 64              # Number of discriminator features in first layer
+  nc: 3                # Number of channels (RGB)
+
+# Data configuration
+data:
+  train_dir: "data/pokemon"  # Path to training data directory
+  val_dir: null               # Path to validation data (null = split from train_dir)
+  test_dir: null              # Path to test data (null = use train_dir)
+  num_workers: 4              # Number of data loading workers
+  augment: false             # Whether to apply data augmentation
+
+# Training configuration
+training:
+  seed: 42                   # Random seed for reproducibility
+  deterministic: false       # Enable deterministic operations (slower)
+  batch_size: 64             # Batch size
+  epochs: 200                # Number of training epochs
+  lr_g: 0.0002               # Learning rate for generator
+  lr_d: 0.0002               # Learning rate for discriminator
+  beta1: 0.5                 # Beta1 for Adam optimizer
+  label_smoothing: 0.0       # Label smoothing (0.0 = no smoothing)
+  
+  # Logging and checkpointing
+  log_interval: 50           # Log every N batches
+  save_interval: 5           # Save sample images every N epochs
+  checkpoint_interval: 25    # Save checkpoint every N epochs
+  val_samples: 64            # Number of samples for validation visualization
+  
+  # Directories
+  checkpoint_dir: "checkpoints"
+  output_dir: "outputs"
+  log_dir: "logs"
+
