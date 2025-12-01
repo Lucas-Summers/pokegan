@@ -44,17 +44,8 @@ pip install -r requirements.txt
 ```
 
 ### For Google Colab (GPU Training)
+Use the provided **[train_colab.ipynb](train_colab.ipynb)** notebook.
 
-See **[COLAB_SETUP.md](COLAB_SETUP.md)** for detailed instructions on running training on Google Colab with GPU support.
-
-Quick start:
-1. Upload your code to Colab (or clone from GitHub)
-2. Install dependencies: `!pip install torch torchvision torchmetrics pyyaml matplotlib scipy tensorboard`
-3. Enable GPU: Runtime → Change runtime type → GPU
-4. Download dataset and update config paths
-5. Run: `!python train.py --config configs/colab.yaml`
-
-Or use the provided **[colab_notebook.ipynb](colab_notebook.ipynb)** notebook.
 
 ### 2. Prepare Dataset
 
@@ -82,7 +73,11 @@ data/pokemon/
 └── metadata.csv    # Dataset metadata (optional)
 ```
 
-**Note:** The dataset already has train/val/test splits, so you don't need to run `generate_splits` unless you want to recreate the splits.
+#### Notes:
+- The dataset already has train/val/test splits, so you **don't need** to run `generate_splits` unless you want to recreate the splits.
+- The `metadata.csv` file contains information about the Pokémon but isn't required for training
+- The `dataset/` folder contains the original unsplit data (not needed if train/val/test exist)
+
 
 ### 3. Verify Installation
 
