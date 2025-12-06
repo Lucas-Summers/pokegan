@@ -119,6 +119,7 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
     d_fake_acc = []
     
     nz = config['model']['nz']
+    loss_type = config['training'].get('loss_type', 'bce')
     label_smoothing = config['training'].get('label_smoothing', 0.0)
     d_steps_per_g_step = config['training'].get('d_steps_per_g_step', 1)
     grad_clip_d = config['training'].get('grad_clip_d')
@@ -128,23 +129,46 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
         batch_size = real_images.size(0)
         real_images = real_images.to(device)
         
+        # Prepare labels based on loss type
+        # One-sided label smoothing: only smooth real labels, keep fake labels at 0
+        one_sided_smoothing = config['training'].get('one_sided_label_smoothing', False)
+        
+        if loss_type.lower() == 'lsgan':
+            # LSGAN: real labels = 1, fake labels = 0
+            # With one-sided smoothing: real = 1 - smoothing, fake = 0 (no smoothing)
+            if one_sided_smoothing and label_smoothing > 0:
+                label_real_d = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
+            else:
+                label_real_d = torch.ones(batch_size, 1, device=device)
+            label_fake_d = torch.zeros(batch_size, 1, device=device)
+            label_real_g = torch.ones(batch_size, 1, device=device)
+        else:
+            # BCE: with optional one-sided label smoothing
+            if one_sided_smoothing and label_smoothing > 0:
+                # Only smooth real labels, fake labels stay at 0
+                label_real_d = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
+                label_fake_d = torch.zeros(batch_size, 1, device=device)
+            else:
+                # Two-sided smoothing (original behavior)
+                label_real_d = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
+                label_fake_d = torch.full((batch_size, 1), label_smoothing, device=device)
+            label_real_g = torch.full((batch_size, 1), 1.0, device=device)
+        
         # Train Discriminator (potentially multiple times)
         for d_step in range(d_steps_per_g_step):
             netD.zero_grad()
             
             # Real images
-            label_real = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
             output_real = netD(real_images)
-            errD_real = criterion(output_real, label_real)
+            errD_real = criterion(output_real, label_real_d)
             errD_real.backward()
             D_x = output_real.mean().item()
             
-            # Fake images
+            # Fake images (generate new ones for each discriminator step)
             noise = torch.randn(batch_size, nz, device=device)
             fake_images = netG(noise)
-            label_fake = torch.full((batch_size, 1), label_smoothing, device=device)
             output_fake = netD(fake_images.detach())
-            errD_fake = criterion(output_fake, label_fake)
+            errD_fake = criterion(output_fake, label_fake_d)
             errD_fake.backward()
             D_G_z1 = output_fake.mean().item()
             
@@ -156,11 +180,12 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
             
             optimizerD.step()
         
-        # Train Generator (once per batch)
+        # Train Generator (once per batch, generate new fake images)
         netG.zero_grad()
-        label_real = torch.full((batch_size, 1), 1.0, device=device)
+        noise = torch.randn(batch_size, nz, device=device)
+        fake_images = netG(noise)
         output = netD(fake_images)
-        errG = criterion(output, label_real)
+        errG = criterion(output, label_real_g)
         errG.backward()
         
         # Gradient clipping for generator (if enabled)
@@ -208,6 +233,9 @@ def validate(netG, netD, val_loader, criterion, device, config):
     
     nz = config['model']['nz']
     n_samples = config['training'].get('val_samples', 64)
+    loss_type = config['training'].get('loss_type', 'bce')
+    label_smoothing = config['training'].get('label_smoothing', 0.0)
+    one_sided_smoothing = config['training'].get('one_sided_label_smoothing', False)
     
     with torch.no_grad():
         for batch_idx, real_images in enumerate(val_loader):
@@ -215,21 +243,38 @@ def validate(netG, netD, val_loader, criterion, device, config):
             real_images = real_images.to(device)
             
             # Discriminator on real images
-            label_real = torch.full((batch_size, 1), 1.0, device=device)
+            if loss_type.lower() == 'lsgan':
+                # LSGAN with optional one-sided smoothing
+                if one_sided_smoothing and label_smoothing > 0:
+                    label_real = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
+                else:
+                    label_real = torch.ones(batch_size, 1, device=device)
+                label_fake = torch.zeros(batch_size, 1, device=device)
+            else:
+                # BCE with optional one-sided smoothing
+                if one_sided_smoothing and label_smoothing > 0:
+                    label_real = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
+                    label_fake = torch.zeros(batch_size, 1, device=device)
+                else:
+                    label_real = torch.full((batch_size, 1), 1.0, device=device)
+                    label_fake = torch.full((batch_size, 1), 0.0, device=device)
+            
             output_real = netD(real_images)
             errD_real = criterion(output_real, label_real)
             
             # Discriminator on fake images
             noise = torch.randn(batch_size, nz, device=device)
             fake_images = netG(noise)
-            label_fake = torch.full((batch_size, 1), 0.0, device=device)
             output_fake = netD(fake_images)
             errD_fake = criterion(output_fake, label_fake)
             
             errD = errD_real + errD_fake
             
             # Generator loss
-            label_real = torch.full((batch_size, 1), 1.0, device=device)
+            if loss_type.lower() == 'lsgan':
+                label_real = torch.ones(batch_size, 1, device=device)
+            else:
+                label_real = torch.full((batch_size, 1), 1.0, device=device)
             output = netD(fake_images)
             errG = criterion(output, label_real)
             
@@ -282,12 +327,59 @@ def main():
     # Create models, dataloaders, loss and optimizers
     netG, netD = create_models(config, device)
     train_loader, val_loader = create_dataloaders(config)
-    criterion = nn.BCELoss()
+    
+    # Choose loss function (LSGAN or BCE)
+    loss_type = config['training'].get('loss_type', 'bce').lower()
+    if loss_type == 'lsgan':
+        criterion = nn.MSELoss()
+        netD.use_sigmoid = False  # LSGAN uses raw outputs
+        print("Using LSGAN (MSE loss)")
+    else:
+        criterion = nn.BCELoss()
+        netD.use_sigmoid = True  # BCE uses sigmoid outputs
+        print("Using BCE loss")
     beta2 = config['training'].get('beta2', 0.999)
     optimizerG = optim.Adam(netG.parameters(), lr=config['training']['lr_g'], 
                            betas=(config['training']['beta1'], beta2))
     optimizerD = optim.Adam(netD.parameters(), lr=config['training']['lr_d'], 
                            betas=(config['training']['beta1'], beta2))
+    
+    # Learning rate schedulers
+    lr_scheduler_config = config['training'].get('lr_scheduler', {})
+    schedulerG = None
+    schedulerD = None
+    
+    if lr_scheduler_config.get('enabled', False):
+        scheduler_type = lr_scheduler_config.get('type', 'step').lower()
+        
+        if scheduler_type == 'step':
+            step_size = lr_scheduler_config.get('step_size', 50)
+            gamma = lr_scheduler_config.get('gamma', 0.5)
+            schedulerG = optim.lr_scheduler.StepLR(optimizerG, step_size=step_size, gamma=gamma)
+            schedulerD = optim.lr_scheduler.StepLR(optimizerD, step_size=step_size, gamma=gamma)
+            print(f"Using StepLR scheduler: step_size={step_size}, gamma={gamma}")
+        
+        elif scheduler_type == 'exponential':
+            gamma = lr_scheduler_config.get('gamma', 0.95)
+            schedulerG = optim.lr_scheduler.ExponentialLR(optimizerG, gamma=gamma)
+            schedulerD = optim.lr_scheduler.ExponentialLR(optimizerD, gamma=gamma)
+            print(f"Using ExponentialLR scheduler: gamma={gamma}")
+        
+        elif scheduler_type == 'reduce_on_plateau':
+            mode = lr_scheduler_config.get('mode', 'min')
+            factor = lr_scheduler_config.get('factor', 0.5)
+            patience = lr_scheduler_config.get('patience', 10)
+            min_lr = lr_scheduler_config.get('min_lr', 1e-6)
+            schedulerG = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizerG, mode=mode, factor=factor, patience=patience, min_lr=min_lr, verbose=True
+            )
+            schedulerD = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizerD, mode=mode, factor=factor, patience=patience, min_lr=min_lr, verbose=True
+            )
+            print(f"Using ReduceLROnPlateau scheduler: mode={mode}, factor={factor}, patience={patience}")
+        
+        else:
+            print(f"Unknown scheduler type: {scheduler_type}, skipping LR scheduling")
     
     # Early stopping configuration
     early_stopping_config = config['training'].get('early_stopping', {})
@@ -341,6 +433,26 @@ def main():
         writer.add_scalar('Val/Loss_D', val_metrics['d_loss'], epoch)
         writer.add_scalar('Val/Loss_G', val_metrics['g_loss'], epoch)
         writer.add_scalar('Val/FID', fid, epoch)
+        
+        # Learning rate scheduling
+        if schedulerG is not None and schedulerD is not None:
+            lr_scheduler_config = config['training'].get('lr_scheduler', {})
+            scheduler_type = lr_scheduler_config.get('type', 'step').lower()
+            
+            if scheduler_type == 'reduce_on_plateau':
+                # ReduceLROnPlateau steps on metric (FID)
+                schedulerG.step(fid)
+                schedulerD.step(fid)
+            else:
+                # StepLR and ExponentialLR step on epoch
+                schedulerG.step()
+                schedulerD.step()
+            
+            # Log learning rates
+            current_lr_g = optimizerG.param_groups[0]['lr']
+            current_lr_d = optimizerD.param_groups[0]['lr']
+            writer.add_scalar('Train/LR_G', current_lr_g, epoch)
+            writer.add_scalar('Train/LR_D', current_lr_d, epoch)
         
         # Save sample images and checkpoints
         if epoch % config['training']['save_interval'] == 0:

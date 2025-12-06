@@ -27,36 +27,44 @@ class Discriminator(nn.Module):
         conv_layers.append(maybe_spectral_norm(
             nn.Conv2d(ndf, ndf * 2, kernel_size=4, stride=2, padding=1, bias=False)
         ))
-        conv_layers.append(nn.BatchNorm2d(ndf * 2))
+        # Skip BatchNorm when using spectral normalization (they can conflict)
+        if not use_spectral_norm:
+            conv_layers.append(nn.BatchNorm2d(ndf * 2))
         conv_layers.append(nn.LeakyReLU(0.2, inplace=True))
         
         # Conv2d: 16×16×128 → 8×8×256
         conv_layers.append(maybe_spectral_norm(
             nn.Conv2d(ndf * 2, ndf * 4, kernel_size=4, stride=2, padding=1, bias=False)
         ))
-        conv_layers.append(nn.BatchNorm2d(ndf * 4))
+        if not use_spectral_norm:
+            conv_layers.append(nn.BatchNorm2d(ndf * 4))
         conv_layers.append(nn.LeakyReLU(0.2, inplace=True))
         
         # Conv2d: 8×8×256 → 4×4×512
         conv_layers.append(maybe_spectral_norm(
             nn.Conv2d(ndf * 4, ndf * 8, kernel_size=4, stride=2, padding=1, bias=False)
         ))
-        conv_layers.append(nn.BatchNorm2d(ndf * 8))
+        if not use_spectral_norm:
+            conv_layers.append(nn.BatchNorm2d(ndf * 8))
         conv_layers.append(nn.LeakyReLU(0.2, inplace=True))
         
         self.main = nn.Sequential(*conv_layers)
         
         # Flatten → Linear: 4×4×512 → 1
+        # For LSGAN, we don't use Sigmoid (outputs raw scores)
+        # For BCE, we use Sigmoid
         fc_layers = [
             nn.Flatten(),
-            maybe_spectral_norm(nn.Linear(ndf * 8 * 4 * 4, 1)),
-            nn.Sigmoid()  # Output probability
+            maybe_spectral_norm(nn.Linear(ndf * 8 * 4 * 4, 1))
         ]
         self.fc = nn.Sequential(*fc_layers)
+        self.use_sigmoid = True  # Default to BCE/Sigmoid, can be changed for LSGAN
     
     def forward(self, input):
         x = self.main(input)
         x = self.fc(x)
+        if self.use_sigmoid:
+            return torch.sigmoid(x)
         return x
 
 def test_discriminator():
