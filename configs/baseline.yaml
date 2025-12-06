@@ -6,6 +6,7 @@ model:
   ngf: 512             # Number of generator features in first layer
   ndf: 64              # Number of discriminator features in first layer
   nc: 3                # Number of channels (RGB)
+  use_spectral_norm: true  # Apply spectral normalization to discriminator (stabilizes training)
 
 # Data configuration
 data:
@@ -19,12 +20,18 @@ data:
 training:
   seed: 42                   # Random seed for reproducibility
   deterministic: false       # Enable deterministic operations (slower)
-  batch_size: 64             # Batch size
+  batch_size: 128            # Batch size (increased for more stable gradients)
   epochs: 200                # Number of training epochs
   lr_g: 0.0002               # Learning rate for generator
-  lr_d: 0.0002               # Learning rate for discriminator
+  lr_d: 0.0001               # Learning rate for discriminator (TTUR: lower LR for D)
   beta1: 0.5                 # Beta1 for Adam optimizer
-  label_smoothing: 0.15      # Label smoothing (0.15 = recommended for discriminator regularization)
+  beta2: 0.999               # Beta2 for Adam optimizer
+  label_smoothing: 0.1       # Label smoothing
+  
+  # Training stability options
+  d_steps_per_g_step: 1      # Number of discriminator updates per generator update (1 = balanced)
+  grad_clip_g: 10.0          # Gradient clipping for generator (None to disable)
+  grad_clip_d: None          # Gradient clipping for discriminator (None to disable)
   
   # Early stopping configuration
   early_stopping:

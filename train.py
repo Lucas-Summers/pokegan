@@ -36,7 +36,8 @@ def create_models(config, device):
     
     netD = Discriminator(
         nc=config['model']['nc'],
-        ndf=config['model']['ndf']
+        ndf=config['model']['ndf'],
+        use_spectral_norm=config['model'].get('use_spectral_norm', False)
     ).to(device)
     
     # Initialize weights
@@ -119,39 +120,53 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
     
     nz = config['model']['nz']
     label_smoothing = config['training'].get('label_smoothing', 0.0)
+    d_steps_per_g_step = config['training'].get('d_steps_per_g_step', 1)
+    grad_clip_d = config['training'].get('grad_clip_d', None)
+    grad_clip_g = config['training'].get('grad_clip_g', None)
     
     for batch_idx, real_images in enumerate(train_loader):
         batch_size = real_images.size(0)
         real_images = real_images.to(device)
         
-        # Train Discriminator
-        netD.zero_grad()
+        # Train Discriminator (potentially multiple times)
+        for d_step in range(d_steps_per_g_step):
+            netD.zero_grad()
+            
+            # Real images
+            label_real = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
+            output_real = netD(real_images)
+            errD_real = criterion(output_real, label_real)
+            errD_real.backward()
+            D_x = output_real.mean().item()
+            
+            # Fake images
+            noise = torch.randn(batch_size, nz, device=device)
+            fake_images = netG(noise)
+            label_fake = torch.full((batch_size, 1), label_smoothing, device=device)
+            output_fake = netD(fake_images.detach())
+            errD_fake = criterion(output_fake, label_fake)
+            errD_fake.backward()
+            D_G_z1 = output_fake.mean().item()
+            
+            errD = errD_real + errD_fake
+            
+            # Gradient clipping for discriminator (if enabled)
+            if grad_clip_d is not None:
+                torch.nn.utils.clip_grad_norm_(netD.parameters(), grad_clip_d)
+            
+            optimizerD.step()
         
-        # Real images
-        label_real = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
-        output_real = netD(real_images)
-        errD_real = criterion(output_real, label_real)
-        errD_real.backward()
-        D_x = output_real.mean().item()
-        
-        # Fake images
-        noise = torch.randn(batch_size, nz, device=device)
-        fake_images = netG(noise)
-        label_fake = torch.full((batch_size, 1), label_smoothing, device=device)
-        output_fake = netD(fake_images.detach())
-        errD_fake = criterion(output_fake, label_fake)
-        errD_fake.backward()
-        D_G_z1 = output_fake.mean().item()
-        
-        errD = errD_real + errD_fake
-        optimizerD.step()
-        
-        # Train Generator
+        # Train Generator (once per batch)
         netG.zero_grad()
         label_real = torch.full((batch_size, 1), 1.0, device=device)
         output = netD(fake_images)
         errG = criterion(output, label_real)
         errG.backward()
+        
+        # Gradient clipping for generator (if enabled)
+        if grad_clip_g is not None:
+            torch.nn.utils.clip_grad_norm_(netG.parameters(), grad_clip_g)
+        
         D_G_z2 = output.mean().item()
         optimizerG.step()
         
@@ -268,10 +283,11 @@ def main():
     netG, netD = create_models(config, device)
     train_loader, val_loader = create_dataloaders(config)
     criterion = nn.BCELoss()
+    beta2 = config['training'].get('beta2', 0.999)
     optimizerG = optim.Adam(netG.parameters(), lr=config['training']['lr_g'], 
-                           betas=(config['training']['beta1'], 0.999))
+                           betas=(config['training']['beta1'], beta2))
     optimizerD = optim.Adam(netD.parameters(), lr=config['training']['lr_d'], 
-                           betas=(config['training']['beta1'], 0.999))
+                           betas=(config['training']['beta1'], beta2))
     
     # Early stopping configuration
     early_stopping_config = config['training'].get('early_stopping', {})
