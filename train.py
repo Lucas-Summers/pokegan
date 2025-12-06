@@ -121,8 +121,8 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
     nz = config['model']['nz']
     label_smoothing = config['training'].get('label_smoothing', 0.0)
     d_steps_per_g_step = config['training'].get('d_steps_per_g_step', 1)
-    grad_clip_d = config['training'].get('grad_clip_d', None)
-    grad_clip_g = config['training'].get('grad_clip_g', None)
+    grad_clip_d = config['training'].get('grad_clip_d')
+    grad_clip_g = config['training'].get('grad_clip_g')
     
     for batch_idx, real_images in enumerate(train_loader):
         batch_size = real_images.size(0)
@@ -152,7 +152,7 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
             
             # Gradient clipping for discriminator (if enabled)
             if grad_clip_d is not None:
-                torch.nn.utils.clip_grad_norm_(netD.parameters(), grad_clip_d)
+                torch.nn.utils.clip_grad_norm_(netD.parameters(), float(grad_clip_d))
             
             optimizerD.step()
         
@@ -165,7 +165,7 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
         
         # Gradient clipping for generator (if enabled)
         if grad_clip_g is not None:
-            torch.nn.utils.clip_grad_norm_(netG.parameters(), grad_clip_g)
+            torch.nn.utils.clip_grad_norm_(netG.parameters(), float(grad_clip_g))
         
         D_G_z2 = output.mean().item()
         optimizerG.step()

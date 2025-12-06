@@ -30,8 +30,8 @@ training:
   
   # Training stability options
   d_steps_per_g_step: 1      # Number of discriminator updates per generator update (1 = balanced)
-  grad_clip_g: 10.0          # Gradient clipping for generator (None to disable)
-  grad_clip_d: None          # Gradient clipping for discriminator (None to disable)
+  grad_clip_g: 10.0          # Gradient clipping for generator (omit to disable)
+  # grad_clip_d: 10.0        # Gradient clipping for discriminator (omit to disable)
   
   # Early stopping configuration
   early_stopping:
