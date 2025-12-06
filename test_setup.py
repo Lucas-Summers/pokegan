@@ -1,15 +1,6 @@
-"""
-Quick setup test script to verify installation and model architecture.
-Run this before training to ensure everything is set up correctly.
-"""
-
 import torch
 import sys
 import os
-
-print("="*50)
-print("Testing PokéGAN Setup")
-print("="*50)
 
 # Test 1: PyTorch installation
 print("\n1. Testing PyTorch installation...")
@@ -148,10 +139,8 @@ except Exception as e:
     print(f"   ⚠ Data directory check error: {e}")
     print("   (This is OK - dataset check is optional)")
 
-print("\n" + "="*50)
-print("Setup test complete!")
-print("="*50)
-print("\nIf all tests passed, you're ready to train:")
+print("\nSetup test complete!")
+print("If all tests passed, you're ready to train:")
 print("  python train.py --config configs/baseline.yaml")
-print()
+
 

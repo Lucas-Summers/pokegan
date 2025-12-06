@@ -1,5 +1,4 @@
-# Baseline DCGAN Configuration for Pokémon Generation
-# Stage 2: Baseline Model Implementation
+# Stage 3: Final Model Configuration
 
 # Model architecture
 model:
@@ -14,7 +13,7 @@ data:
   val_dir: "data/pokemon-dataset-1000/val"      # Path to validation data
   test_dir: "data/pokemon-dataset-1000/test"    # Path to test data (for evaluation)
   num_workers: 4                                # Number of data loading workers
-  augment: false                                # Whether to apply data augmentation
+  augment: true                                 # Whether to apply data augmentation (horizontal flips, rotations, color jitter)
 
 # Training configuration
 training:
@@ -25,7 +24,13 @@ training:
   lr_g: 0.0002               # Learning rate for generator
   lr_d: 0.0002               # Learning rate for discriminator
   beta1: 0.5                 # Beta1 for Adam optimizer
-  label_smoothing: 0.0       # Label smoothing (0.0 = no smoothing)
+  label_smoothing: 0.15      # Label smoothing (0.15 = recommended for discriminator regularization)
+  
+  # Early stopping configuration
+  early_stopping:
+    enabled: true             # Enable early stopping based on FID
+    patience: 10             # Number of epochs to wait for improvement before stopping
+    min_delta: 0.0           # Minimum change to qualify as improvement
   
   # Logging and checkpointing
   log_interval: 50           # Log every N batches

@@ -1,30 +1,8 @@
-"""
-Discriminator network for DCGAN-style Pokémon generation.
-Takes a 64x64x3 RGB image and outputs a probability score (real vs. fake).
-"""
-
 import torch
 import torch.nn as nn
 
-
 class Discriminator(nn.Module):
-    """
-    DCGAN-style Discriminator network.
-    
-    Architecture:
-    - Input: 64×64×3 RGB image
-    - 4 Conv2d blocks with LeakyReLU and BatchNorm
-    - Strided convolutions instead of pooling
-    - Flatten → Linear → Sigmoid
-    - Output: Probability score (real vs. fake)
-    """
-    
     def __init__(self, nc=3, ndf=64):
-        """
-        Args:
-            nc: Number of channels in input image (default: 3 for RGB)
-            ndf: Number of discriminator features in first layer (default: 64)
-        """
         super(Discriminator, self).__init__()
         self.nc = nc
         self.ndf = ndf
@@ -58,22 +36,11 @@ class Discriminator(nn.Module):
         )
     
     def forward(self, input):
-        """
-        Forward pass through discriminator.
-        
-        Args:
-            input: Image tensor of shape (batch_size, nc, 64, 64)
-            
-        Returns:
-            Probability tensor of shape (batch_size, 1)
-        """
         x = self.main(input)
         x = self.fc(x)
         return x
 
-
 def test_discriminator():
-    """Test function to verify discriminator architecture."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     netD = Discriminator(nc=3, ndf=64).to(device)
     
@@ -92,9 +59,8 @@ def test_discriminator():
     assert output.shape == (4, 1), f"Expected (4, 1), got {output.shape}"
     assert 0.0 <= output.min().item() <= 1.0, "Output should be in [0, 1] range (Sigmoid)"
     assert 0.0 <= output.max().item() <= 1.0, "Output should be in [0, 1] range (Sigmoid)"
-    print("✓ Discriminator test passed!")
+    print("Discriminator test passed!")
 
 
 if __name__ == "__main__":
     test_discriminator()
-

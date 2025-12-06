@@ -1,31 +1,8 @@
-"""
-Generator network for DCGAN-style Pokémon generation.
-Takes a 100-dimensional noise vector and generates a 64x64x3 RGB image.
-"""
-
 import torch
 import torch.nn as nn
 
-
 class Generator(nn.Module):
-    """
-    DCGAN-style Generator network.
-    
-    Architecture:
-    - Input: z ∈ R^100 (Gaussian noise vector)
-    - Linear: 100 → 4×4×512 (reshape to 4×4×512 feature map)
-    - 4 TransposeConv2d blocks with BatchNorm and ReLU
-    - Final layer with Tanh activation
-    - Output: 64×64×3 RGB image with values in [-1, 1]
-    """
-    
     def __init__(self, nz=100, ngf=512, nc=3):
-        """
-        Args:
-            nz: Size of input noise vector (default: 100)
-            ngf: Number of generator features in first layer (default: 512)
-            nc: Number of channels in output image (default: 3 for RGB)
-        """
         super(Generator, self).__init__()
         self.nz = nz
         self.ngf = ngf
@@ -61,27 +38,13 @@ class Generator(nn.Module):
         )
     
     def forward(self, input):
-        """
-        Forward pass through generator.
-        
-        Args:
-            input: Noise tensor of shape (batch_size, nz)
-            
-        Returns:
-            Generated image tensor of shape (batch_size, nc, 64, 64)
-        """
-        # Linear layer and reshape
         x = self.linear(input)
         x = x.view(-1, self.ngf, 4, 4)  # Reshape to (batch, 512, 4, 4)
-        
-        # Pass through transpose convolutions
         x = self.main(x)
         
         return x
 
-
 def test_generator():
-    """Test function to verify generator architecture."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     netG = Generator(nz=100, ngf=512, nc=3).to(device)
     
@@ -100,9 +63,8 @@ def test_generator():
     assert fake_images.shape == (4, 3, 64, 64), f"Expected (4, 3, 64, 64), got {fake_images.shape}"
     assert -1.0 <= fake_images.min().item() <= 1.0, "Output should be in [-1, 1] range"
     assert -1.0 <= fake_images.max().item() <= 1.0, "Output should be in [-1, 1] range"
-    print("✓ Generator test passed!")
+    print("Generator test passed!")
 
 
 if __name__ == "__main__":
     test_generator()
-

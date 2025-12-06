@@ -1,24 +1,15 @@
-"""
-Evaluation script for DCGAN Pokémon generator.
-Evaluates model on held-out test data and generates metrics.
-"""
-
 import argparse
 import os
 import yaml
 import torch
-import numpy as np
 from torch.utils.data import DataLoader
-
 from models import Generator, Discriminator
 from data import PokemonDataset
 from utils.reproducibility import set_seed
 from utils.visualization import save_image_grid, plot_confusion_matrix
 from utils.metrics import calculate_fid, calculate_inception_score, calculate_diversity_score
 
-
 def parse_args():
-    """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Evaluate DCGAN for Pokémon generation')
     parser.add_argument('--checkpoint', type=str, required=True,
                        help='Path to model checkpoint')
@@ -32,20 +23,16 @@ def parse_args():
                        help='Directory to save evaluation outputs')
     return parser.parse_args()
 
-
 def load_config(config_path):
-    """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     return config
 
-
 def load_model(checkpoint_path, config, device):
-    """Load generator and discriminator from checkpoint."""
     print(f"Loading checkpoint from {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device)
     
-    # Create models
+    # Create generator and discriminator models
     netG = Generator(
         nz=config['model']['nz'],
         ngf=config['model']['ngf'],
@@ -70,9 +57,7 @@ def load_model(checkpoint_path, config, device):
     
     return netG, netD
 
-
 def generate_samples(netG, n_samples, nz, device, batch_size=64):
-    """Generate fake samples."""
     print(f"Generating {n_samples} samples...")
     fake_images = []
     
@@ -86,9 +71,7 @@ def generate_samples(netG, n_samples, nz, device, batch_size=64):
     fake_images = torch.cat(fake_images, dim=0)
     return fake_images
 
-
 def evaluate_discriminator(netD, real_images, fake_images, device):
-    """Evaluate discriminator performance."""
     print("Evaluating discriminator...")
     
     real_scores = []
@@ -113,26 +96,17 @@ def evaluate_discriminator(netD, real_images, fake_images, device):
     
     return real_scores, fake_scores
 
-
 def main():
-    """Main evaluation function."""
+    # Prepare environment for evaluation
     args = parse_args()
     config = load_config(args.config)
-    
-    # Set reproducibility
-    set_seed(config['training']['seed'])
-    
-    # Device
+    set_seed(config['training']['seed'])    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
-    
-    # Create output directory
+    print(f"Using device: {device}")    
     os.makedirs(args.output_dir, exist_ok=True)
     
-    # Load model
-    netG, netD = load_model(args.checkpoint, config, device)
-    
-    # Load test data
+    # Load model and test data
+    netG, netD = load_model(args.checkpoint, config, device)    
     test_dir = args.test_dir if args.test_dir else config['data'].get('test_dir', config['data']['train_dir'])
     test_dataset = PokemonDataset(root_dir=test_dir, augment=False)
     test_loader = DataLoader(
@@ -142,59 +116,43 @@ def main():
         num_workers=config['data']['num_workers'],
         pin_memory=True
     )
-    
     print(f"Test dataset size: {len(test_dataset)}")
-    
-    # Collect real images
     print("Collecting real images...")
     real_images = []
     for batch in test_loader:
         real_images.append(batch)
     real_images = torch.cat(real_images, dim=0)
     
-    # Limit real images for comparison (use same number as generated)
+    # Limit real images for comparison to the number of generated samples
     n_eval = min(args.n_samples, len(real_images))
     real_images = real_images[:n_eval]
-    
     print(f"Using {n_eval} real images for evaluation")
     
-    # Generate fake samples
-    fake_images = generate_samples(netG, args.n_samples, config['model']['nz'], device)
-    
-    # Save sample grids
+    # Generate fake images and save sample grids
+    fake_images = generate_samples(netG, args.n_samples, config['model']['nz'], device)    
     print("Saving sample images...")
     save_image_grid(real_images[:64], os.path.join(args.output_dir, 'real_samples.png'))
     save_image_grid(fake_images[:64], os.path.join(args.output_dir, 'fake_samples.png'))
     
-    # Calculate metrics
     print("\n" + "="*50)
-    print("EVALUATION METRICS")
+    print("EVALUATION RESULTS")
     print("="*50)
-    
-    # FID
-    print("\nCalculating FID...")
-    fid = calculate_fid(real_images.to(device), fake_images.to(device), device=device)
-    print(f"FID Score: {fid:.4f} (lower is better)")
-    
-    # Inception Score
-    print("\nCalculating Inception Score...")
+
+    # Calculate metrics
+    print("\nCalculating metrics...")
+    fid = calculate_fid(real_images.to(device), fake_images.to(device), device=device)    
     is_mean, is_std = calculate_inception_score(fake_images.to(device), device=device)
-    print(f"Inception Score: {is_mean:.4f} ± {is_std:.4f} (higher is better)")
-    
-    # Diversity Score
-    print("\nCalculating Diversity Score...")
     diversity = calculate_diversity_score(fake_images.to(device), device=device)
-    print(f"Diversity Score: {diversity:.4f} (higher is better)")
-    
+    print("\nMetrics:")
+    print(f"  FID: {fid:.4f} (lower is better)")
+    print(f"  Inception Score: {is_mean:.4f} ± {is_std:.4f} (higher is better)")
+    print(f"  Diversity Score: {diversity:.4f} (higher is better)")
+
     # Discriminator evaluation
     print("\nEvaluating discriminator...")
     real_scores, fake_scores = evaluate_discriminator(netD, real_images, fake_images, device)
-    
-    # Confusion matrix
     plot_confusion_matrix(real_scores, fake_scores, 
                          save_path=os.path.join(args.output_dir, 'confusion_matrix.png'))
-    
-    # Discriminator statistics
     print(f"\nDiscriminator Statistics:")
     print(f"  Real images - Mean score: {real_scores.mean().item():.4f}, "
           f"Std: {real_scores.std().item():.4f}")
@@ -217,16 +175,7 @@ def main():
     
     print(f"\nMetrics saved to {metrics_file}")
     print(f"\nEvaluation complete! Outputs saved to {args.output_dir}")
-    
-    # Print summary
-    print("\n" + "="*50)
-    print("SUMMARY")
-    print("="*50)
-    print(f"FID: {fid:.4f}")
-    print(f"IS: {is_mean:.4f} ± {is_std:.4f}")
-    print(f"Diversity: {diversity:.4f}")
 
 
 if __name__ == '__main__':
     main()
-

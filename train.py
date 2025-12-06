@@ -1,8 +1,3 @@
-"""
-Training script for DCGAN Pokémon generator.
-Implements complete training pipeline with logging, validation, and checkpointing.
-"""
-
 import argparse
 import os
 import yaml
@@ -19,9 +14,7 @@ from utils.reproducibility import set_seed, make_deterministic
 from utils.visualization import save_image_grid, plot_training_curves
 from utils.metrics import calculate_fid
 
-
 def parse_args():
-    """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Train DCGAN for Pokémon generation')
     parser.add_argument('--config', type=str, default='configs/baseline.yaml',
                        help='Path to configuration file')
@@ -29,16 +22,12 @@ def parse_args():
                        help='Path to checkpoint to resume from')
     return parser.parse_args()
 
-
 def load_config(config_path):
-    """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     return config
 
-
 def create_models(config, device):
-    """Create generator and discriminator models."""
     netG = Generator(
         nz=config['model']['nz'],
         ngf=config['model']['ngf'],
@@ -67,10 +56,7 @@ def create_models(config, device):
     
     return netG, netD
 
-
 def create_dataloaders(config):
-    """Create training and validation dataloaders."""
-    # Check if separate validation directory is provided
     if 'val_dir' in config['data'] and config['data']['val_dir'] is not None:
         # Use separate directories for train and validation
         train_dataset = PokemonDataset(
@@ -121,10 +107,8 @@ def create_dataloaders(config):
     
     return train_loader, val_loader
 
-
 def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD, 
                 device, config, epoch, writer):
-    """Train for one epoch."""
     netG.train()
     netD.train()
     
@@ -140,9 +124,7 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
         batch_size = real_images.size(0)
         real_images = real_images.to(device)
         
-        # ====================
         # Train Discriminator
-        # ====================
         netD.zero_grad()
         
         # Real images
@@ -164,18 +146,16 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
         errD = errD_real + errD_fake
         optimizerD.step()
         
-        # ====================
         # Train Generator
-        # ====================
         netG.zero_grad()
-        label_real = torch.full((batch_size, 1), 1.0, device=device)  # Generator wants to fool discriminator
+        label_real = torch.full((batch_size, 1), 1.0, device=device)
         output = netD(fake_images)
         errG = criterion(output, label_real)
         errG.backward()
         D_G_z2 = output.mean().item()
         optimizerG.step()
         
-        # Statistics
+        # Stats
         g_losses.append(errG.item())
         d_losses.append(errD.item())
         d_real_acc.append((output_real > 0.5).float().mean().item())
@@ -189,8 +169,6 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
                   f'Loss_G: {errG.item():.4f} '
                   f'D(x): {D_x:.4f} '
                   f'D(G(z)): {D_G_z1:.4f}/{D_G_z2:.4f}')
-            
-            # TensorBoard logging
             global_step = epoch * len(train_loader) + batch_idx
             writer.add_scalar('Train/Loss_D', errD.item(), global_step)
             writer.add_scalar('Train/Loss_G', errG.item(), global_step)
@@ -204,9 +182,7 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
         'd_fake_acc': np.mean(d_fake_acc)
     }
 
-
 def validate(netG, netD, val_loader, criterion, device, config):
-    """Validate the model."""
     netG.eval()
     netD.eval()
     
@@ -261,9 +237,7 @@ def validate(netG, netD, val_loader, criterion, device, config):
         'fake_samples': fake_samples
     }
 
-
 def save_checkpoint(netG, netD, optimizerG, optimizerD, epoch, metrics, config, filepath):
-    """Save training checkpoint."""
     checkpoint = {
         'epoch': epoch,
         'netG_state_dict': netG.state_dict(),
@@ -276,51 +250,39 @@ def save_checkpoint(netG, netD, optimizerG, optimizerD, epoch, metrics, config, 
     torch.save(checkpoint, filepath)
     print(f"Saved checkpoint to {filepath}")
 
-
 def main():
-    """Main training function."""
+    # Prepare environment for training
     args = parse_args()
     config = load_config(args.config)
-    
-    # Set reproducibility
     set_seed(config['training']['seed'])
     if config['training'].get('deterministic', False):
         make_deterministic()
-    
-    # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    
-    # Create output directories
     os.makedirs(config['training']['checkpoint_dir'], exist_ok=True)
     os.makedirs(config['training']['output_dir'], exist_ok=True)
-    os.makedirs(config['training']['log_dir'], exist_ok=True)
-    
-    # TensorBoard writer
+    os.makedirs(config['training']['log_dir'], exist_ok=True)    
     writer = SummaryWriter(log_dir=config['training']['log_dir'])
     
-    # Create models
+    # Create models, dataloaders, loss and optimizers
     netG, netD = create_models(config, device)
-    
-    # Create dataloaders
     train_loader, val_loader = create_dataloaders(config)
-    
-    # Loss and optimizers
     criterion = nn.BCELoss()
     optimizerG = optim.Adam(netG.parameters(), lr=config['training']['lr_g'], 
                            betas=(config['training']['beta1'], 0.999))
     optimizerD = optim.Adam(netD.parameters(), lr=config['training']['lr_d'], 
                            betas=(config['training']['beta1'], 0.999))
     
+    # Early stopping configuration
+    early_stopping_config = config['training'].get('early_stopping', {})
+    early_stopping_enabled = early_stopping_config.get('enabled', False)
+    early_stopping_patience = early_stopping_config.get('patience', 10)
+    early_stopping_min_delta = early_stopping_config.get('min_delta', 0.0)
+    epochs_without_improvement = 0
+    
     # Resume from checkpoint if specified
     start_epoch = 0
     best_fid = float('inf')
-    train_losses_g = []
-    train_losses_d = []
-    val_losses_g = []
-    val_losses_d = []
-    val_fids = []
-    
     if args.resume:
         print(f"Loading checkpoint from {args.resume}")
         checkpoint = torch.load(args.resume, map_location=device)
@@ -335,19 +297,21 @@ def main():
     
     # Training loop
     print("Starting training...")
+    train_losses_g = []
+    train_losses_d = []
+    val_losses_g = []
+    val_losses_d = []
+    val_fids = []
     for epoch in range(start_epoch, config['training']['epochs']):
-        # Train
+        # Train and validate one epoch
         train_metrics = train_epoch(netG, netD, train_loader, criterion, 
                                     optimizerG, optimizerD, device, config, epoch, writer)
         train_losses_g.append(train_metrics['g_loss'])
         train_losses_d.append(train_metrics['d_loss'])
-        
-        # Validate
         val_metrics = validate(netG, netD, val_loader, criterion, device, config)
         val_losses_g.append(val_metrics['g_loss'])
         val_losses_d.append(val_metrics['d_loss'])
         
-        # Calculate FID on validation set
         print("Calculating FID...")
         fid = calculate_fid(val_metrics['real_samples'], val_metrics['fake_samples'], device=device)
         val_fids.append(fid)
@@ -362,27 +326,34 @@ def main():
         writer.add_scalar('Val/Loss_G', val_metrics['g_loss'], epoch)
         writer.add_scalar('Val/FID', fid, epoch)
         
-        # Save sample images
+        # Save sample images and checkpoints
         if epoch % config['training']['save_interval'] == 0:
             save_image_grid(val_metrics['fake_samples'], 
                           os.path.join(config['training']['output_dir'], f'epoch_{epoch}_fake.png'))
             save_image_grid(val_metrics['real_samples'], 
-                          os.path.join(config['training']['output_dir'], f'epoch_{epoch}_real.png'))
-        
-        # Save checkpoint
+                          os.path.join(config['training']['output_dir'], f'epoch_{epoch}_real.png'))        
         if epoch % config['training']['checkpoint_interval'] == 0:
             checkpoint_path = os.path.join(config['training']['checkpoint_dir'], 
                                          f'checkpoint_epoch_{epoch}.pt')
             save_checkpoint(netG, netD, optimizerG, optimizerD, epoch, 
                           {'best_fid': best_fid}, config, checkpoint_path)
         
-        # Save best model
-        if fid < best_fid:
+        # Save best model and check for early stopping
+        if fid < best_fid - early_stopping_min_delta:
             best_fid = fid
+            epochs_without_improvement = 0
             best_path = os.path.join(config['training']['checkpoint_dir'], 'best_model.pt')
             save_checkpoint(netG, netD, optimizerG, optimizerD, epoch, 
                           {'best_fid': best_fid}, config, best_path)
             print(f"New best FID: {best_fid:.4f}")
+        else:
+            epochs_without_improvement += 1
+        
+        # Early stopping check
+        if early_stopping_enabled and epochs_without_improvement >= early_stopping_patience:
+            print(f"\nEarly stopping triggered after {epochs_without_improvement} epochs without improvement.")
+            print(f"Best FID: {best_fid:.4f} at epoch {epoch - epochs_without_improvement}")
+            break
     
     # Save final model
     final_path = os.path.join(config['training']['checkpoint_dir'], 'final_model.pt')
@@ -394,7 +365,7 @@ def main():
     save_checkpoint(netG, netD, optimizerG, optimizerD, config['training']['epochs'] - 1,
                    {'best_fid': best_fid}, config, baseline_path)
     
-    # Plot training curves
+    # plot training curves
     plot_training_curves(
         train_losses_g, val_losses_g,
         train_metrics={'D_Loss': train_losses_d},
@@ -408,4 +379,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
