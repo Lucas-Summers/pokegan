@@ -32,11 +32,12 @@ ENV/
 *.ckpt
 
 # Data
-data/
+*.zip
 *.png
 *.jpg
 *.jpeg
 *.gif
+*.csv
 
 # Outputs
 outputs/
