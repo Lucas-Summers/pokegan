@@ -20,14 +20,14 @@ data:
 training:
   seed: 42                   # Random seed for reproducibility
   deterministic: false       # Enable deterministic operations (slower)
-  batch_size: 64             # Batch size (reduced from 128 - better for spectral norm stability)
+  batch_size: 256             # Batch size (reduced from 128 - better for spectral norm stability)
   epochs: 200                # Number of training epochs
   lr_g: 0.0002               # Learning rate for generator
-  lr_d: 0.0001               # Learning rate for discriminator (reduced - D is too strong)
+  lr_d: 0.00005               # Learning rate for discriminator (reduced - D is too strong)
   beta1: 0.5                 # Beta1 for Adam optimizer
   beta2: 0.999               # Beta2 for Adam optimizer
   loss_type: lsgan           # Loss function: 'bce' or 'lsgan' (LSGAN often more stable)
-  label_smoothing: 0.2       # Label smoothing value (increased to weaken D)
+  label_smoothing: 0.25       # Label smoothing value (increased to weaken D)
   one_sided_label_smoothing: true  # Only smooth real labels (keep fake labels at 0) - more stable
   
   # Training stability options
@@ -47,7 +47,7 @@ training:
   # Early stopping configuration
   early_stopping:
     enabled: true             # Enable early stopping based on FID
-    patience: 15              # Increased patience - give more time for improvement
+    patience: 15              # Increased patience - give more time for improvemeznt
     min_delta: 1.0            # Minimum FID improvement to count (prevents stopping on noise)
   
   # Logging and checkpointing
