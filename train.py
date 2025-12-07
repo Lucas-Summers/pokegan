@@ -15,7 +15,7 @@ from utils.visualization import save_image_grid, plot_training_curves
 from utils.metrics import calculate_fid
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train DCGAN for Pokémon generation')
+    parser = argparse.ArgumentParser(description='Train DCGAN for PokÃ©mon generation')
     parser.add_argument('--config', type=str, default='configs/baseline.yaml',
                        help='Path to configuration file')
     parser.add_argument('--resume', type=str, default=None,
@@ -28,6 +28,10 @@ def load_config(config_path):
     return config
 
 def create_models(config, device):
+    # Determine loss type first to configure discriminator properly
+    loss_type = config['training'].get('loss_type', 'bce').lower()
+    use_sigmoid = (loss_type != 'lsgan')  # No sigmoid for LSGAN
+    
     netG = Generator(
         nz=config['model']['nz'],
         ngf=config['model']['ngf'],
@@ -37,7 +41,8 @@ def create_models(config, device):
     netD = Discriminator(
         nc=config['model']['nc'],
         ndf=config['model']['ndf'],
-        use_spectral_norm=config['model'].get('use_spectral_norm', False)
+        use_spectral_norm=config['model'].get('use_spectral_norm', False),
+        use_sigmoid=use_sigmoid
     ).to(device)
     
     # Initialize weights
@@ -332,11 +337,9 @@ def main():
     loss_type = config['training'].get('loss_type', 'bce').lower()
     if loss_type == 'lsgan':
         criterion = nn.MSELoss()
-        netD.use_sigmoid = False  # LSGAN uses raw outputs
         print("Using LSGAN (MSE loss)")
     else:
         criterion = nn.BCELoss()
-        netD.use_sigmoid = True  # BCE uses sigmoid outputs
         print("Using BCE loss")
     beta2 = config['training'].get('beta2', 0.999)
     optimizerG = optim.Adam(netG.parameters(), lr=config['training']['lr_g'], 
