@@ -371,10 +371,10 @@ def main():
             patience = lr_scheduler_config.get('patience', 10)
             min_lr = lr_scheduler_config.get('min_lr', 1e-6)
             schedulerG = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizerG, mode=mode, factor=factor, patience=patience, min_lr=min_lr, verbose=True
+                optimizerG, mode=mode, factor=factor, patience=patience, min_lr=min_lr
             )
             schedulerD = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizerD, mode=mode, factor=factor, patience=patience, min_lr=min_lr, verbose=True
+                optimizerD, mode=mode, factor=factor, patience=patience, min_lr=min_lr
             )
             print(f"Using ReduceLROnPlateau scheduler: mode={mode}, factor={factor}, patience={patience}")
         
