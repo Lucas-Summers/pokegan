@@ -22,12 +22,6 @@ class SelfAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
     
     def forward(self, x):
-        """
-        Args:
-            x: input feature map (B, C, H, W)
-        Returns:
-            out: self attention value + input feature (B, C, H, W)
-        """
         batch_size, C, height, width = x.size()
         
         # Project to query, key, value
@@ -47,4 +41,3 @@ class SelfAttention(nn.Module):
         out = self.gamma * out + x
         
         return out
-

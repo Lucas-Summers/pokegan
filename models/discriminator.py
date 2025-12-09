@@ -115,7 +115,7 @@ class Discriminator(nn.Module):
 
 def test_discriminator():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print("Testing Discriminator (BCE mode)...")
+    print("Testing Discriminator...")
     netD = Discriminator(nc=3, ndf=64, kernel_size=4, 
                         stride=2, padding=1, dropout=0.0, use_spectral_norm=False,
                         attention=False, attention_layer=32).to(device)
@@ -128,7 +128,6 @@ def test_discriminator():
         output = netD(real_images)
     
     print(f"Discriminator output shape: {output.shape}")
-    print(f"Expected shape: (4, 1)")
     print(f"Min value: {output.min().item():.3f}, Max value: {output.max().item():.3f}")
     print(f"Discriminator parameters: {sum(p.numel() for p in netD.parameters()):,}")
     

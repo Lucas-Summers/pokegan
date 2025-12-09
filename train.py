@@ -70,7 +70,6 @@ def create_models(config, device):
     return netG, netD
 
 def create_dataloaders(config):
-    # Get augmentation config
     aug_config = config['data'].get('augment', {})
     augment_enabled = aug_config.get('enabled', False)
     
@@ -89,7 +88,7 @@ def create_dataloaders(config):
         # Split single dataset into train/val
         full_dataset = PokemonDataset(
             root_dir=config['data']['train_dir'],
-            augment=False  # Don't augment before splitting
+            augment=False
         )
         val_size = int(len(full_dataset) * 0.2)
         train_size = len(full_dataset) - val_size
@@ -97,12 +96,6 @@ def create_dataloaders(config):
             full_dataset, [train_size, val_size],
             generator=torch.Generator().manual_seed(42)
         )
-        # Apply augmentation to training set only
-        if config['data']['augment']:
-            # Note: We can't directly augment a Subset, so we'll handle this in the DataLoader
-            # For now, we'll create a wrapper or just use the subset as-is
-            # In practice, you might want to create a custom dataset wrapper
-            pass
     
     train_loader = DataLoader(
         train_dataset,
@@ -145,26 +138,25 @@ def train_epoch(netG, netD, train_loader, criterion, optimizerG, optimizerD,
         batch_size = real_images.size(0)
         real_images = real_images.to(device)
         
-        # Prepare labels
-        # One-sided label smoothing: only smooth real labels, keep fake labels at 0
+        # Preparing labels 
         one_sided_smoothing = config['training'].get('one_sided_label_smoothing', False)
-        
-        # BCE: with optional one-sided label smoothing
         if one_sided_smoothing and label_smoothing > 0:
-            # Only smooth real labels, fake labels stay at 0
+            # One-sided smoothing: smooth real labels, keep fake labels at 0
             label_real_d = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
             label_fake_d = torch.zeros(batch_size, 1, device=device)
-        else:
-            # Two-sided smoothing (original behavior)
+        elif label_smoothing > 0:
+            # Two-sided smoothing
             label_real_d = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
             label_fake_d = torch.full((batch_size, 1), label_smoothing, device=device)
-        label_real_g = torch.full((batch_size, 1), 1.0, device=device)
+        else:
+            # No smoothing (hard labels)
+            label_real_d = torch.full((batch_size, 1), 1.0, device=device)
+            label_real_g = torch.full((batch_size, 1), 1.0, device=device)
         
-        # Noisy label flipping: randomly flip labels with specified probability
+        # randomly flip labels with specified probability
         if label_flip_prob > 0.0:
             flip_mask_real = torch.rand(batch_size, 1, device=device) < label_flip_prob
             flip_mask_fake = torch.rand(batch_size, 1, device=device) < label_flip_prob
-            # Flip: real becomes fake (0), fake becomes real (1)
             label_real_d = torch.where(flip_mask_real, 
                                       torch.zeros_like(label_real_d), 
                                       label_real_d)
@@ -258,15 +250,21 @@ def validate(netG, netD, val_loader, criterion, device, config):
             batch_size = real_images.size(0)
             real_images = real_images.to(device)
             
-            # Discriminator on real images
-            # BCE with optional one-sided smoothing
+            # Preparing labels 
             if one_sided_smoothing and label_smoothing > 0:
+                # One-sided smoothing: smooth real labels, keep fake labels at 0
                 label_real = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
                 label_fake = torch.zeros(batch_size, 1, device=device)
+            elif label_smoothing > 0:
+                # Two-sided smoothing
+                label_real = torch.full((batch_size, 1), 1.0 - label_smoothing, device=device)
+                label_fake = torch.full((batch_size, 1), label_smoothing, device=device)
             else:
+                # No smoothing (hard labels)
                 label_real = torch.full((batch_size, 1), 1.0, device=device)
                 label_fake = torch.full((batch_size, 1), 0.0, device=device)
             
+            # Discriminator on real images
             output_real = netD(real_images)
             errD_real = criterion(output_real, label_real)
             

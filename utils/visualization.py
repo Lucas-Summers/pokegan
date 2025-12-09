@@ -59,7 +59,7 @@ def plot_training_curves(train_losses, val_losses, train_metrics=None, val_metri
     plt.tight_layout()
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"Saved training curves to {save_path}")
+    print(f"Saved training curves to {save_path}.")
 
 
 def plot_confusion_matrix(real_scores, fake_scores, save_path='confusion_matrix.png', threshold=0.5):

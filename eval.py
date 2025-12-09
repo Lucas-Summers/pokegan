@@ -144,8 +144,8 @@ def main():
     # Generate fake images and save sample grids
     fake_images = generate_samples(netG, args.n_samples, config['model']['nz'], device)    
     print("Saving sample images...")
-    save_image_grid(real_images[:64], os.path.join(args.output_dir, 'real_samples.png'))
-    save_image_grid(fake_images[:64], os.path.join(args.output_dir, 'fake_samples.png'))
+    save_image_grid(real_images[:64], os.path.join(args.output_dir, 'real_eval_samples.png'))
+    save_image_grid(fake_images[:64], os.path.join(args.output_dir, 'fake_eval_samples.png'))
     
     print("\n" + "="*50)
     print("EVALUATION RESULTS")
@@ -164,30 +164,15 @@ def main():
     # Discriminator evaluation
     print("\nEvaluating discriminator...")
     real_scores, fake_scores = evaluate_discriminator(netD, real_images, fake_images, device)
-    plot_confusion_matrix(real_scores, fake_scores, 
-                         save_path=os.path.join(args.output_dir, 'confusion_matrix.png'))
     print(f"\nDiscriminator Statistics:")
     print(f"  Real images - Mean score: {real_scores.mean().item():.4f}, "
           f"Std: {real_scores.std().item():.4f}")
     print(f"  Fake images - Mean score: {fake_scores.mean().item():.4f}, "
           f"Std: {fake_scores.std().item():.4f}")
-    
-    # Save metrics to file
-    metrics_file = os.path.join(args.output_dir, 'metrics.txt')
-    with open(metrics_file, 'w') as f:
-        f.write("EVALUATION METRICS\n")
-        f.write("="*50 + "\n\n")
-        f.write(f"FID Score: {fid:.4f}\n")
-        f.write(f"Inception Score: {is_mean:.4f} ± {is_std:.4f}\n")
-        f.write(f"Diversity Score: {diversity:.4f}\n\n")
-        f.write("Discriminator Statistics:\n")
-        f.write(f"  Real images - Mean: {real_scores.mean().item():.4f}, "
-                f"Std: {real_scores.std().item():.4f}\n")
-        f.write(f"  Fake images - Mean: {fake_scores.mean().item():.4f}, "
-                f"Std: {fake_scores.std().item():.4f}\n")
-    
-    print(f"\nMetrics saved to {metrics_file}")
-    print(f"\nEvaluation complete! Outputs saved to {args.output_dir}")
+    plot_confusion_matrix(real_scores, fake_scores, 
+                        save_path=os.path.join(args.output_dir, 'confusion_matrix_eval.png'))
+
+    print(f"\nEvaluation complete! Outputs saved to {args.output_dir}.")
 
 
 if __name__ == '__main__':

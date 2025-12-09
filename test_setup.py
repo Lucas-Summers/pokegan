@@ -140,7 +140,4 @@ except Exception as e:
     print("   (This is OK - dataset check is optional)")
 
 print("\nSetup test complete!")
-print("If all tests passed, you're ready to train:")
-print("  python train.py --config configs/baseline.yaml")
-
-
+print("If all tests passed, you're ready to train.")

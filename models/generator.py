@@ -98,6 +98,7 @@ class Generator(nn.Module):
 
 def test_generator():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print("Testing Generator...")
     netG = Generator(nz=100, ngf=512, nc=3, kernel_size=4, stride=2, padding=1, dropout=0.0,
                      attention=False, attention_layer=32).to(device)
     
@@ -109,7 +110,6 @@ def test_generator():
         fake_images = netG(noise)
     
     print(f"Generator output shape: {fake_images.shape}")
-    print(f"Expected shape: (4, 3, 64, 64)")
     print(f"Min value: {fake_images.min().item():.3f}, Max value: {fake_images.max().item():.3f}")
     print(f"Generator parameters: {sum(p.numel() for p in netG.parameters()):,}")
     
