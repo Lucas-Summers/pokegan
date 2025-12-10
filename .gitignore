@@ -27,7 +27,7 @@ ENV/
 .venv
 
 # PyTorch
-#*.pt
+*.pt
 *.pth
 *.ckpt
 
