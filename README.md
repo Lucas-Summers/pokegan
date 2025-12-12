@@ -2,6 +2,10 @@
 
 **CSC 487 Deep Learning - Final Project (Stage 3)**
 
+**Report link:** https://docs.google.com/document/d/1nX1qXteAzB8-6VdspF-N8u-svsiR6h-2JW6-yK2Y7cY/edit?usp=sharing
+
+**Presentation link:** https://docs.google.com/presentation/d/1kCN0UHr_99ZK7Sx4nJLKZ_OOUBFSOYYkBMwVwHIA5F4/edit?usp=sharing
+
 Our project aims to generate new sprite images of Pokémon-style creatures using a Deep Convolutional Generative Adversarial Network (DCGAN) trained from scratch. The model learns the different attributes that give Pokémon their unique style, including color schemes, outlines, shading, patterns, and body structure.
 
 ## Project Structure
@@ -121,90 +125,6 @@ python eval.py --checkpoint checkpoints/best_model_epoch_100.pt --config configs
 - `eval_outputs/real_eval_samples.png`: Grid of real images
 - `eval_outputs/fake_eval_samples.png`: Grid of generated images
 - `eval_outputs/confusion_matrix_eval.png`: Discriminator confusion matrix
-
-## Model Architecture
-
-### Generator
-- **Input**: 100-dimensional Gaussian noise vector
-- **Architecture**: 
-  - Linear: 100 → 4×4×512
-  - 4 TransposeConv2d blocks (4×4 → 8×8 → 16×16 → 32×32 → 64×64)
-  - BatchNorm and ReLU activations
-  - Optional self-attention at 16×16 or 32×32 spatial resolution
-  - Optional dropout layers
-  - Tanh output activation (values in [-1, 1])
-- **Output**: 64×64×3 RGB image
-- **Parameters**: ~2.5-3 million
-
-### Discriminator
-- **Input**: 64×64×3 RGB image
-- **Architecture**:
-  - 4 Conv2d blocks with strided convolutions (64×64 → 32×32 → 16×16 → 8×8 → 4×4)
-  - LeakyReLU activations (slope=0.2)
-  - BatchNorm layers (or Spectral Normalization if enabled)
-  - Optional self-attention at 16×16 or 32×32 spatial resolution
-  - Optional dropout layers
-  - Flatten → Linear → Sigmoid
-- **Output**: Probability score (real vs. fake)
-- **Parameters**: ~2.5-3 million
-
-### Advanced Features
-
-**Self-Attention Mechanism:**
-- SAGAN-style self-attention module for capturing long-range dependencies
-- Can be enabled in both generator and discriminator
-- Placed at configurable spatial resolutions (16×16 or 32×32)
-
-**Spectral Normalization:**
-- Optional spectral normalization for discriminator stability
-- Helps stabilize GAN training by constraining discriminator weights
-
-## Training Features
-
-The training pipeline includes several advanced techniques for stable GAN training:
-
-- **Label Smoothing**: Reduces discriminator overconfidence (configurable two-sided or one-sided)
-- **Label Flipping**: Randomly flips labels with configurable probability to add noise
-- **Gradient Clipping**: Prevents exploding gradients in generator and discriminator
-- **Early Stopping**: Stops training when FID stops improving (configurable patience)
-- **Data Augmentation**: Optional horizontal/vertical flips and rotation
-- **Separate Learning Rates**: Different learning rates for generator and discriminator
-- **Validation Monitoring**: FID calculated on validation set each epoch
-- **Checkpointing**: Automatic saving of best and final models
-
-## Evaluation Metrics
-
-1. **Fréchet Inception Distance (FID)**: Measures statistical similarity between real and generated images (lower is better)
-2. **Inception Score (IS)**: Measures quality and diversity of generated images (higher is better)
-3. **Diversity Score**: Measures variety of generated images using pairwise L2 distances (higher is better)
-
-## Configuration
-
-The project includes three configuration files:
-
-- **`configs/baseline.yaml`**: Baseline DCGAN configuration (Stage 2)
-- **`configs/final.yaml`**: Final model with self-attention, spectral normalization, and advanced training features
-
-Each config file allows customization of:
-- Model architecture (nz, ngf, ndf, nc, attention, spectral norm, dropout)
-- Training hyperparameters (batch_size, epochs, learning rates, beta1, beta2)
-- Training techniques (label smoothing, gradient clipping, early stopping)
-- Data paths and augmentation settings
-- Logging and checkpoint intervals
-
-## Reproducibility
-
-The code includes comprehensive reproducibility features:
-- Fixed random seeds (configurable in config file, default: 42)
-- Optional deterministic operations (slower but fully reproducible)
-- Checkpoint saving for exact model state
-- Complete configuration files for all experiments
-
-To ensure reproducibility:
-1. Use the same random seed (default: 42)
-2. Enable deterministic operations (set `deterministic: true` in config)
-3. Use the same dataset and preprocessing
-4. Use the same configuration file
 
 ## Authors
 
