@@ -2,10 +2,6 @@
 
 **CSC 487 Deep Learning - Final Project (Stage 3)**
 
-**Report link:** https://docs.google.com/document/d/1nX1qXteAzB8-6VdspF-N8u-svsiR6h-2JW6-yK2Y7cY/edit?usp=sharing
-
-**Presentation link:** https://docs.google.com/presentation/d/1kCN0UHr_99ZK7Sx4nJLKZ_OOUBFSOYYkBMwVwHIA5F4/edit?usp=sharing
-
 Our project aims to generate new sprite images of Pokémon-style creatures using a Deep Convolutional Generative Adversarial Network (DCGAN) trained from scratch. The model learns the different attributes that give Pokémon their unique style, including color schemes, outlines, shading, patterns, and body structure.
 
 ## Project Structure
