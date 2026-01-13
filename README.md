@@ -1,4 +1,4 @@
-# PokéGAN: Generating Original Pokémon Sprites Using a GAN
+# PokéGAN
 
 **CSC 487 Deep Learning - Final Project (Stage 3)**
 
